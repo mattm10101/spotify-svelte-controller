@@ -21,3 +21,11 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+
+# .gitignore file
+
+# ... other ignored files
+
+# Ignore environment variables
+.env
