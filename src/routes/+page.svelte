@@ -5,6 +5,7 @@
 
 	let currentlyPlaying: CurrentlyPlaying | null = null;
 	let isLoading = false;
+	let isRefreshing = false; // NEW: State for subtle background refreshing
 
 	// --- Auth Functions ---
 	async function loginWithSpotify() {
@@ -22,10 +23,14 @@
 		currentlyPlaying = null;
 	}
 
-	// --- Fetch Function (Corrected URL) ---
-	async function getCurrentlyPlaying(token: string) {
-		isLoading = true;
-		const endpoint = 'https://api.spotify.com/v1/me/player/currently-playing';
+	// --- Fetch Function (UPDATED) ---
+	async function getCurrentlyPlaying(token: string, isRefresh = false) {
+		// Only show the main "Loading..." screen on the initial load
+		if (!isRefresh) {
+			isLoading = true;
+		}
+
+		const endpoint = 'https://api.spotify.com/v1/...';
 
 		const response = await fetch(endpoint, {
 			headers: {
@@ -35,20 +40,19 @@
 
 		if (response.status === 204) {
 			currentlyPlaying = null;
-			isLoading = false;
-			return;
-		}
-
-		if (response.ok) {
+		} else if (response.ok) {
 			const data = await response.json();
 			currentlyPlaying = data;
 		}
+
 		isLoading = false;
 	}
 
-	// --- Player Control Functions ---
+	// --- Player Control Functions (UPDATED) ---
 	async function playerAction(endpoint: string, method: 'PUT' | 'POST') {
 		if (!$userSession?.provider_token) return;
+
+		isRefreshing = true; // Start the subtle refresh effect
 
 		try {
 			const response = await fetch(endpoint, {
@@ -61,30 +65,30 @@
 			});
 
 			if (!response.ok) {
-				console.error('Spotify API Request Failed:', response);
-				try {
-					const errorData = await response.json();
-					console.error('Spotify API Error Details:', errorData.error.message);
-					alert(`Error: ${errorData.error.message}`);
-				} catch (jsonError) {
-					console.error('Could not parse error JSON. Status:', response.statusText);
-					alert(`An API error occurred: ${response.statusText}`);
-				}
-				return;
+				// Error handling...
+				const errorData = await response.json().catch(() => ({}));
+				const message = errorData?.error?.message || response.statusText;
+				console.error('Spotify API Error:', message);
+				alert(`Error: ${message}`);
+			} else {
+				// On success, wait briefly then get the new state
+				setTimeout(() => {
+					if ($userSession?.provider_token) {
+						getCurrentlyPlaying($userSession.provider_token, true); // Pass `true` for refresh
+					}
+				}, 500);
 			}
-
-			setTimeout(() => {
-				if ($userSession?.provider_token) {
-					getCurrentlyPlaying($userSession.provider_token);
-				}
-			}, 500);
 		} catch (e) {
 			console.error('Network or other error:', e);
 			alert('An unexpected network error occurred.');
+		} finally {
+			// Stop the refresh effect after a short delay, letting the UI update first
+			setTimeout(() => {
+				isRefreshing = false;
+			}, 700);
 		}
 	}
 
-	// --- Control Functions (Corrected URLs) ---
 	function play() {
 		playerAction('https://api.spotify.com/v1/me/player/play', 'PUT');
 	}
@@ -114,7 +118,7 @@
 			<button class="logout-btn" on:click={logout}>Logout</button>
 		</div>
 
-		<div class="player">
+		<div class="player" class:refreshing={isRefreshing}>
 			{#if isLoading}
 				<p>Loading...</p>
 			{:else if currentlyPlaying}
@@ -127,7 +131,6 @@
 					<p class="song-title">{currentlyPlaying.item.name}</p>
 					<p class="artist-name">{currentlyPlaying.item.artists.map((a) => a.name).join(', ')}</p>
 				</div>
-
 				<div class="controls">
 					<button on:click={prevTrack} aria-label="Previous Track">
 						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
@@ -136,7 +139,6 @@
 							/></svg
 						>
 					</button>
-
 					{#if currentlyPlaying.is_playing}
 						<button on:click={pause} aria-label="Pause">
 							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
@@ -150,7 +152,6 @@
 							>
 						</button>
 					{/if}
-
 					<button on:click={nextTrack} aria-label="Next Track">
 						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
 							><path d="m6 18l8.5-6L6 6v12zM8 9.86L11.03 12L8 14.14V9.86zM18 6h-2v12h2V6z" /></svg
@@ -169,14 +170,13 @@
 </main>
 
 <style>
-	/* ... All your existing CSS goes here, no changes needed ... */
+	/* ... all previous styles ... */
 	:root {
 		--spotify-green: #1db954;
 		--spotify-white: #ffffff;
 		--spotify-light-gray: #b3b3b3;
 		--spotify-black: #191414;
 	}
-
 	main {
 		display: flex;
 		flex-direction: column;
@@ -203,6 +203,11 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 1.5rem;
+		transition: opacity 0.3s ease; /* Smooth transition for the effect */
+	}
+	/* NEW: The style for our refreshing state */
+	.player.refreshing {
+		opacity: 0.6;
 	}
 	.album-art {
 		width: 300px;
