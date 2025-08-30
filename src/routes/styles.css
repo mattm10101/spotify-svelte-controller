@@ -1,0 +1,308 @@
+/* src/routes/styles.css */
+
+:root {
+	--spotify-green: #1db954;
+}
+
+main.dark {
+	--bg: #121212;
+	--text-primary: #ffffff;
+	--text-secondary: #b3b3b3;
+	--surface-bg: #181818;
+}
+
+main.light {
+	--bg: #f5f5f5;
+	--text-primary: #121212;
+	--text-secondary: #535353;
+	--surface-bg: #ffffff;
+}
+
+main {
+	background-color: var(--bg);
+	color: var(--text-primary);
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	height: 100vh;
+	width: 100vw;
+	padding: 1rem;
+	box-sizing: border-box;
+	transition:
+		background-color 0.3s ease,
+		color 0.3s ease;
+}
+
+.player-wrapper,
+.login-container {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	flex-grow: 1;
+	width: 100%;
+	gap: 1.5rem;
+}
+
+.player {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1.5rem;
+	transition: opacity 0.3s ease;
+	width: 100%;
+	max-width: 90vw;
+}
+.player.refreshing {
+	opacity: 0.6;
+}
+
+.song-details {
+	order: 1;
+	text-align: center;
+	max-width: 100%;
+}
+.album-art {
+	order: 2;
+	width: clamp(250px, 80vw, 350px);
+	height: clamp(250px, 80vw, 350px);
+	border-radius: 8px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.controls {
+	order: 3;
+	display: flex;
+	align-items: center;
+	gap: 1.5rem;
+}
+.collapsible-section {
+	order: 5; /* Pushed to the bottom */
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	width: 100%;
+	max-width: 350px;
+	margin-top: 1rem;
+}
+
+.song-title {
+	font-size: 1.5rem;
+	font-weight: bold;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.artist-name {
+	font-size: 1rem;
+	color: var(--text-secondary);
+	margin-top: 0.2rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.controls button {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--text-secondary);
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	border-radius: 50%;
+	transition: all 0.2s ease-in-out;
+	padding: 8px;
+}
+.controls button:hover {
+	color: var(--text-primary);
+	transform: scale(1.1);
+}
+.controls button:active {
+	transform: scale(0.95);
+}
+.controls button svg {
+	width: 32px;
+	height: 32px;
+	fill: currentColor;
+}
+
+.play-pause-btn {
+	width: 64px;
+	height: 64px;
+	background-color: var(--text-primary);
+	color: var(--bg);
+}
+.play-pause-btn:hover {
+	transform: scale(1.1);
+	color: var(--bg);
+}
+.play-pause-btn.playing {
+	background-color: var(--spotify-green);
+}
+.play-pause-btn.playing:hover {
+	color: var(--text-primary);
+}
+.play-pause-btn svg {
+	width: 36px;
+	height: 36px;
+	fill: currentColor;
+	position: relative;
+	left: 2px;
+}
+.play-pause-btn.playing svg {
+	left: 0;
+}
+
+.login-container h1 {
+	margin-bottom: 2rem;
+}
+.login-btn {
+	font-size: 1.2rem;
+	padding: 12px 30px;
+	font-weight: bold;
+	cursor: pointer;
+	background-color: var(--spotify-green);
+	color: var(--text-primary);
+	border: none;
+	border-radius: 50px;
+	box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+	transition: all 0.2s ease;
+}
+
+/* --- COLLAPSIBLE PANELS --- */
+.collapsible-panel {
+	background-color: var(--surface-bg);
+	border-radius: 15px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	overflow: hidden;
+	width: 100%;
+	transition: all 0.3s ease-in-out;
+}
+.panel-header {
+	padding: 12px 15px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	cursor: pointer;
+	font-size: 0.9rem;
+	background: none;
+	border: none;
+	width: 100%;
+	text-align: left;
+	color: inherit;
+	font: inherit;
+}
+.panel-header span {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-weight: 500;
+}
+.chevron {
+	fill: var(--text-secondary);
+	transition: transform 0.3s ease-in-out;
+}
+.collapsible-panel.expanded .chevron {
+	transform: rotate(180deg);
+}
+.panel-content {
+	max-height: 0;
+	overflow: hidden;
+	transition:
+		max-height 0.3s ease-in-out,
+		padding 0.3s ease-in-out;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 15px;
+}
+.collapsible-panel.expanded .panel-content {
+	max-height: 100px;
+	padding: 0 15px 15px;
+}
+.icon-btn {
+	background: none;
+	border: none;
+	color: var(--text-secondary);
+	cursor: pointer;
+	padding: 5px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s ease;
+}
+.icon-btn:hover {
+	color: var(--text-primary);
+}
+.logout-btn {
+	font-size: 0.9rem;
+	padding: 8px 20px;
+	font-weight: bold;
+	cursor: pointer;
+	background-color: var(--text-secondary);
+	color: var(--bg);
+	border: none;
+	border-radius: 50px;
+}
+
+/* --- VOLUME SLIDER STYLES --- */
+.volume-container {
+	order: 4; /* Places it between the controls and collapsible panels */
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	max-width: 350px;
+	color: var(--text-secondary);
+}
+.volume-container svg {
+	fill: currentColor;
+	flex-shrink: 0;
+}
+input[type='range'] {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 100%;
+	height: 6px;
+	background: var(--surface-bg);
+	border: 1px solid var(--text-secondary);
+	border-radius: 5px;
+	outline: none;
+	opacity: 0.8;
+	transition: opacity 0.2s;
+}
+input[type='range']:hover {
+	opacity: 1;
+}
+/* --- Slider Thumb (the circle) --- */
+input[type='range']::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 18px;
+	height: 18px;
+	background: var(--text-primary);
+	border-radius: 50%;
+	cursor: pointer;
+	border: none;
+}
+input[type='range']::-moz-range-thumb {
+	width: 18px;
+	height: 18px;
+	background: var(--text-primary);
+	border-radius: 50%;
+	cursor: pointer;
+	border: none;
+}
+/* --- Slider Track Color --- */
+input[type='range'] {
+	--progress-bg: var(--spotify-green);
+	background: linear-gradient(
+		to right,
+		var(--progress-bg) 0%,
+		var(--progress-bg) calc(1% * var(--value, 50)),
+		var(--text-secondary) calc(1% * var(--value, 50)),
+		var(--text-secondary) 100%
+	);
+}

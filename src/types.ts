@@ -1,6 +1,10 @@
 // src/types.ts
+
 export interface CurrentlyPlaying {
-	is_playing: boolean; // Add this line
+	device: {
+		volume_percent: number;
+	};
+	is_playing: boolean;
 	item: {
 		name: string;
 		artists: {
