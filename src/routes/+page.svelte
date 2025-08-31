@@ -32,8 +32,18 @@
 		isVolumeControlsExpanded = !isVolumeControlsExpanded;
 	}
 
-	function setVolumeTo(value: number) {
-		volume = value;
+	function setVolumeToMin() {
+		volume = 0;
+		setVolume();
+	}
+
+	function setVolumeToFifty() {
+		volume = 50;
+		setVolume();
+	}
+
+	function setVolumeToMax() {
+		volume = 100;
 		setVolume();
 	}
 
@@ -55,12 +65,12 @@
 		if (!isRefresh) isLoading = true;
 		const endpoint = 'https://api.spotify.com/v1/me/player/currently-playing';
 		const response = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
-		if (response.status === 204 || (response.status === 200 && !(await response.clone().json()).item)) {
+		if (response.status === 204) {
 			currentlyPlaying = null;
 		} else if (response.ok) {
 			const data = await response.json();
 			currentlyPlaying = data;
-			if (data && data.device) {
+			if (data.device) {
 				volume = data.device.volume_percent;
 			}
 		}
@@ -98,6 +108,7 @@
 	async function setVolume() {
 		if (!$userSession?.provider_token) return;
 		const endpoint = `https://api.spotify.com/v1/me/player/volume?volume_percent=${volume}`;
+
 		await fetch(endpoint, {
 			method: 'PUT',
 			headers: {
@@ -107,29 +118,25 @@
 		});
 	}
 
-	let volumeFadeInterval: NodeJS.Timeout;
-	async function fadeVolume(durationMs: number, direction: 'in' | 'out') {
-		clearInterval(volumeFadeInterval);
+	let fadeInterval: NodeJS.Timeout;
+	function fadeVolume(durationMs: number, fadeIn = false) {
+		clearInterval(fadeInterval);
 
 		const startVolume = volume;
-		const endVolume = direction === 'in' ? 100 : 0;
+		const endVolume = fadeIn ? 100 : 0;
 		if (startVolume === endVolume) return;
 
 		const steps = durationMs / 50;
-		const changePerStep = (endVolume - startVolume) / steps;
+		const increment = (endVolume - startVolume) / steps;
 		let currentFadeVolume = startVolume;
 
-		volumeFadeInterval = setInterval(() => {
-			currentFadeVolume += changePerStep;
-			if (direction === 'in') {
-				volume = Math.min(100, Math.round(currentFadeVolume));
-			} else {
-				volume = Math.max(0, Math.round(currentFadeVolume));
-			}
+		fadeInterval = setInterval(() => {
+			currentFadeVolume += increment;
+			volume = Math.round(Math.max(0, Math.min(100, currentFadeVolume)));
 			setVolume();
 
-			if ((direction === 'in' && volume >= 100) || (direction === 'out' && volume <= 0)) {
-				clearInterval(volumeFadeInterval);
+			if ((fadeIn && volume >= 100) || (!fadeIn && volume <= 0)) {
+				clearInterval(fadeInterval);
 			}
 		}, 50);
 	}
@@ -151,190 +158,206 @@
 	}
 </script>
 
-<main class={theme}>
-	<div class="player-wrapper">
-		{#if $userSession}
-			<div class="player" class:refreshing={isRefreshing}>
-				{#if isLoading}
-					<p>Loading...</p>
-				{:else}
-					{#if currentlyPlaying && currentlyPlaying.item}
-						<div class="song-details">
-							<p class="song-title">{currentlyPlaying.item.name}</p>
-							<p class="artist-name">
-								{currentlyPlaying.item.artists.map((a: any) => a.name).join(', ')}
-							</p>
-						</div>
-						{#if showAlbumArt}
-							<img
-								src={currentlyPlaying.item.album.images[0].url}
-								alt="Album art for {currentlyPlaying.item.album.name}"
-								class="album-art"
-							/>
-						{/if}
+<div class="phone-frame">
+	<main class={theme}>
+		<div class="player-wrapper">
+			{#if $userSession}
+				<div class="player" class:refreshing={isRefreshing}>
+					{#if isLoading}
+						<p>Loading...</p>
 					{:else}
-						<div class="song-details placeholder">
-							<p class="song-title">Nothing Playing</p>
-							<p class="artist-name">Use any Spotify app to start a song</p>
+						{#if currentlyPlaying}
+							<div class="song-details">
+								<p class="song-title">{currentlyPlaying.item.name}</p>
+								<p class="artist-name">
+									{currentlyPlaying.item.artists.map((a: any) => a.name).join(', ')}
+								</p>
+							</div>
+
+							{#if showAlbumArt}
+								<img
+									src={currentlyPlaying.item.album.images[0].url}
+									alt="Album art for {currentlyPlaying.item.album.name}"
+									class="album-art"
+								/>
+							{/if}
+						{:else}
+							<div class="song-details placeholder">
+								<p class="song-title">Nothing Playing</p>
+								<p class="artist-name">Use Spotify to start a song</p>
+							</div>
+						{/if}
+
+						<div class="controls">
+							<button on:click={prevTrack} disabled={!currentlyPlaying} aria-label="Previous Track">
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+									><path d="M6 6h2v12H6zm3.5 6L18 6v12l-8.5-6z" /></svg
+								>
+							</button>
+							<button
+								class="play-pause-btn"
+								class:playing={currentlyPlaying?.is_playing}
+								on:click={currentlyPlaying?.is_playing ? pause : play}
+								aria-label={currentlyPlaying?.is_playing ? 'Pause' : 'Play'}
+							>
+								{#if currentlyPlaying?.is_playing}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="36"
+										height="36"
+										viewBox="0 0 24 24"
+										><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg
+									>
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="36"
+										height="36"
+										viewBox="0 0 24 24"
+										><path d="M8 5v14l11-7z" /></svg
+									>
+								{/if}
+							</button>
+							<button on:click={nextTrack} disabled={!currentlyPlaying} aria-label="Next Track">
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+									><path d="M6 18v-12l8.5 6L6 18zM16 6h2v12h-2z" /></svg
+								>
+							</button>
+						</div>
+
+						<div class="volume-container">
+							<input
+								type="range"
+								min="0"
+								max="100"
+								bind:value={volume}
+								on:change={setVolume}
+								style="--value: {volume}"
+								disabled={!currentlyPlaying}
+								aria-label="Volume"
+							/>
+						</div>
+
+						<div class="collapsible-section">
+							<!-- Volume Controls Panel -->
+							<div class="collapsible-panel" class:expanded={isVolumeControlsExpanded}>
+								<button
+									type="button"
+									class="panel-header"
+									on:click={toggleVolumeControls}
+									disabled={!currentlyPlaying}
+								>
+									<span>Volume Controls</span>
+									<svg
+										class="chevron"
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" /></svg
+									>
+								</button>
+								<div class="panel-content">
+									<button class="action-btn" on:click={setVolumeToMin}>0%</button>
+									<button class="action-btn" on:click={setVolumeToFifty}>50%</button>
+									<button class="action-btn" on:click={setVolumeToMax}>100%</button>
+									<button class="action-btn" on:click={() => fadeVolume(2500, true)}
+										>Fade In</button
+									>
+									<button class="action-btn" on:click={() => fadeVolume(2500)}>Fade Out</button>
+								</div>
+							</div>
+
+							<!-- UI Controls Panel -->
+							<div class="collapsible-panel" class:expanded={isUiControlsExpanded}>
+								<button type="button" class="panel-header" on:click={toggleUiControls}>
+									<span>UI Controls</span>
+									<svg
+										class="chevron"
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" /></svg
+									>
+								</button>
+								<div class="panel-content">
+									<button class="icon-btn" on:click={toggleAlbumArt} aria-label="Toggle Album Art">
+										{#if showAlbumArt}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												width="24"
+												height="24"
+												viewBox="0 0 24 24"
+												><path
+													d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
+												/></svg
+											>
+										{:else}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												width="24"
+												height="24"
+												viewBox="0 0 24 24"
+												><path
+													d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.44-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 9.88 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"
+												/></svg
+											>
+										{/if}
+									</button>
+									<button class="icon-btn" on:click={toggleTheme} aria-label="Toggle Theme">
+										{#if theme === 'dark'}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												width="24"
+												height="24"
+												viewBox="0 0 24 24"
+												><path
+													d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"
+												/></svg
+											>
+										{:else}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												width="24"
+												height="24"
+												viewBox="0 0 24 24"
+												><path
+													d="M12.3 4.9c.4-.2.6-.7.4-1.1s-.7-.6-1.1-.4C7.2 5.5 4 9.4 4 14c0 4.4 3.6 8 8 8s8-3.6 8-8c0-2.1-.8-4-2.2-5.5-.4-.4-.9-.3-1.2.1s-.3.9.1 1.2c1.1 1.2 1.8 2.8 1.8 4.4 0 3.3-2.7 6-6 6s-6-2.7-6-6c0-3.4 2.4-6.3 5.7-6.9.1 0 .2-.1.3-.2z"
+												/></svg
+											>
+										{/if}
+									</button>
+								</div>
+							</div>
+
+							<!-- User Info Panel -->
+							<div class="collapsible-panel" class:expanded={isUserInfoExpanded}>
+								<button type="button" class="panel-header" on:click={toggleUserInfo}>
+									<span>{$userSession.user.email}</span>
+									<svg
+										class="chevron"
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" /></svg
+									>
+								</button>
+								<div class="panel-content">
+									<button class="action-btn" on:click={logout}>Logout</button>
+								</div>
+							</div>
 						</div>
 					{/if}
-
-					<div class="controls">
-						<button on:click={prevTrack} disabled={!currentlyPlaying} aria-label="Previous Track">
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-								><path d="M6 6h2v12H6zm3.5 6L18 6v12l-8.5-6z" /></svg
-							>
-						</button>
-						<button
-							class="play-pause-btn"
-							class:playing={currentlyPlaying?.is_playing}
-							on:click={currentlyPlaying?.is_playing ? pause : play}
-							aria-label={currentlyPlaying?.is_playing ? 'Pause' : 'Play'}
-						>
-							{#if currentlyPlaying?.is_playing}
-								<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24"
-									><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg
-								>
-							{:else}
-								<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24"
-									><path d="M8 5v14l11-7z" /></svg
-								>
-							{/if}
-						</button>
-						<button on:click={nextTrack} disabled={!currentlyPlaying} aria-label="Next Track">
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-								><path d="M6 18v-12l8.5 6L6 18zM16 6h2v12h-2z" /></svg
-							>
-						</button>
-					</div>
-
-					<div class="volume-container">
-						<input
-							type="range"
-							min="0"
-							max="100"
-							bind:value={volume}
-							on:change={setVolume}
-							style="--value: {volume}"
-							disabled={!currentlyPlaying}
-							aria-label="Volume"
-						/>
-					</div>
-
-					<div class="collapsible-section">
-						<div class="collapsible-panel" class:expanded={isVolumeControlsExpanded}>
-							<button
-								type="button"
-								class="panel-header"
-								on:click={toggleVolumeControls}
-								disabled={!currentlyPlaying}
-							>
-								<span>Volume Controls</span>
-								<svg
-									class="chevron"
-									xmlns="http://www.w3.org/2000/svg"
-									width="20"
-									height="20"
-									viewBox="0 0 24 24"
-									><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" /></svg
-								>
-							</button>
-							<div class="panel-content">
-								<button class="action-btn" on:click={() => setVolumeTo(0)} aria-label="Mute">0%</button>
-								<button class="action-btn" on:click={() => setVolumeTo(50)}>50%</button>
-								<button class="action-btn" on:click={() => setVolumeTo(100)}>100%</button>
-								<button class="action-btn" on:click={() => fadeVolume(2500, 'in')}>Fade In</button>
-								<button class="action-btn" on:click={() => fadeVolume(2500, 'out')}>Fade Out</button>
-							</div>
-						</div>
-
-						<div class="collapsible-panel" class:expanded={isUiControlsExpanded}>
-							<button type="button" class="panel-header" on:click={toggleUiControls}>
-								<span>UI Controls</span>
-								<svg
-									class="chevron"
-									xmlns="http://www.w3.org/2000/svg"
-									width="20"
-									height="20"
-									viewBox="0 0 24 24"
-									><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" /></svg
-								>
-							</button>
-							<div class="panel-content">
-								<button class="icon-btn" on:click={toggleAlbumArt} aria-label="Toggle Album Art">
-									{#if showAlbumArt}
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="24"
-											height="24"
-											viewBox="0 0 24 24"
-											><path
-												d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
-											/></svg
-										>
-									{:else}
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="24"
-											height="24"
-											viewBox="0 0 24 24"
-											><path
-												d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.44-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 9.88 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"
-											/></svg
-										>
-									{/if}
-								</button>
-								<button class="icon-btn" on:click={toggleTheme} aria-label="Toggle Theme">
-									{#if theme === 'dark'}
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="24"
-											height="24"
-											viewBox="0 0 24 24"
-											><path
-												d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"
-											/></svg
-										>
-									{:else}
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="24"
-											height="24"
-											viewBox="0 0 24 24"
-											><path
-												d="M12.3 4.9c.4-.2.6-.7.4-1.1s-.7-.6-1.1-.4C7.2 5.5 4 9.4 4 14c0 4.4 3.6 8 8 8s8-3.6 8-8c0-2.1-.8-4-2.2-5.5-.4-.4-.9-.3-1.2.1s-.3.9.1 1.2c1.1 1.2 1.8 2.8 1.8 4.4 0 3.3-2.7 6-6 6s-6-2.7-6-6c0-3.4 2.4-6.3 5.7-6.9.1 0 .2-.1.3-.2z"
-											/></svg
-										>
-									{/if}
-								</button>
-							</div>
-						</div>
-
-						<div class="collapsible-panel" class:expanded={isUserInfoExpanded}>
-							<button type="button" class="panel-header" on:click={toggleUserInfo}>
-								<span>{$userSession.user.email}</span>
-								<svg
-									class="chevron"
-									xmlns="http://www.w3.org/2000/svg"
-									width="20"
-									height="20"
-									viewBox="0 0 24 24"
-									><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" /></svg
-								>
-							</button>
-							<div class="panel-content">
-								<button class="action-btn" on:click={logout}>Logout</button>
-							</div>
-						</div>
-					</div>
-				{/if}
-			</div>
-		{:else}
-			<div class="login-container">
-				<h1>Spotify Controller</h1>
-				<button class="login-btn" on:click={loginWithSpotify}>Login with Spotify</button>
-			</div>
-		{/if}
-	</div>
-</main>
+				</div>
+			{:else}
+				<div class="login-container">
+					<h1>Spotify Controller</h1>
+					<button class="login-btn" on:click={loginWithSpotify}>Login with Spotify</button>
+				</div>
+			{/if}
+		</div>
+	</main>
+</div>
 

@@ -4,7 +4,7 @@ html,
 body {
 	margin: 0;
 	padding: 0;
-	background-color: #121212; /* Default to a dark theme background to prevent white flashes */
+	background-color: #121212;
 	font-family:
 		system-ui,
 		-apple-system,
@@ -17,6 +17,35 @@ body {
 		'Open Sans',
 		'Helvetica Neue',
 		sans-serif;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	min-height: 100vh;
+	padding: 1rem 0; /* Add vertical padding for the frame */
+	box-sizing: border-box;
+}
+
+/* --- Static Gradient Border --- */
+.phone-frame {
+	position: relative;
+	width: 100%;
+	max-width: 400px;
+	/* REMOVED max-height and aspect-ratio to allow growing */
+	border-radius: 16px;
+	overflow: hidden;
+	padding: 4px;
+	z-index: 1;
+	display: flex;
+	transition: height 0.3s ease; /* Animate height changes */
+}
+
+.phone-frame::before {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	inset: 0;
+	border-radius: inherit;
+	background: linear-gradient(135deg, #1ed760, #1db954, #1aa34a);
 }
 
 :root {
@@ -44,13 +73,15 @@ main {
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
-	height: 100vh;
-	width: 100vw;
+	height: 100%;
+	width: 100%;
 	padding: 1rem;
 	box-sizing: border-box;
 	transition:
 		background-color 0.3s ease,
 		color 0.3s ease;
+	border-radius: 12px;
+	/* REMOVED overflow-y: auto */
 }
 
 .player-wrapper,
@@ -84,8 +115,8 @@ main {
 }
 .album-art {
 	order: 2;
-	width: clamp(250px, 80vw, 350px);
-	height: clamp(250px, 80vw, 350px);
+	width: clamp(150px, 50vw, 200px);
+	height: clamp(150px, 50vw, 200px);
 	border-radius: 8px;
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
@@ -111,6 +142,7 @@ main {
 	gap: 10px;
 	width: 100%;
 	max-width: 350px;
+	margin-top: 1rem;
 }
 
 .song-details.placeholder .song-title {
@@ -251,20 +283,25 @@ input[type='range']:disabled,
 .collapsible-panel.expanded .chevron {
 	transform: rotate(180deg);
 }
+
 .panel-content {
 	max-height: 0;
 	overflow: hidden;
 	transition:
 		max-height 0.3s ease-in-out,
-		padding 0.3s ease-in-out;
+		padding 0.3s ease-in-out,
+		visibility 0.3s ease-in-out; /* Add visibility to transition */
 	display: flex;
-	justify-content: space-around;
+	flex-wrap: wrap;
+	justify-content: center;
 	align-items: center;
-	gap: 8px;
+	gap: 6px;
+	visibility: hidden; /* Hide content by default */
 }
 .collapsible-panel.expanded .panel-content {
 	max-height: 100px;
 	padding: 5px 15px 15px;
+	visibility: visible; /* Show content when expanded */
 }
 .icon-btn {
 	background: none;
@@ -281,8 +318,9 @@ input[type='range']:disabled,
 .icon-btn:hover {
 	color: var(--text-primary);
 }
+
 .action-btn {
-	font-size: 0.8rem;
+	font-size: 0.75rem;
 	padding: 6px 10px;
 	font-weight: bold;
 	cursor: pointer;
@@ -294,8 +332,7 @@ input[type='range']:disabled,
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	gap: 6px;
-	flex-grow: 1;
+	gap: 4px;
 	white-space: nowrap;
 }
 .action-btn:not(:disabled):hover {
