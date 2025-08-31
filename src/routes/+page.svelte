@@ -32,12 +32,8 @@
 		isVolumeControlsExpanded = !isVolumeControlsExpanded;
 	}
 
-	function setVolumeToMin() {
-		volume = 0;
-		setVolume();
-	}
-	function setVolumeToMax() {
-		volume = 100;
+	function setVolumeTo(value: number) {
+		volume = value;
 		setVolume();
 	}
 
@@ -60,7 +56,7 @@
 		const endpoint = 'https://api.spotify.com/v1/me/player/currently-playing';
 		const response = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
 		if (response.status === 204 || (response.status === 200 && !(await response.clone().json()).item)) {
-			currentlyPlaying = null; // Handles API returning 200 with no item
+			currentlyPlaying = null;
 		} else if (response.ok) {
 			const data = await response.json();
 			currentlyPlaying = data;
@@ -102,7 +98,6 @@
 	async function setVolume() {
 		if (!$userSession?.provider_token) return;
 		const endpoint = `https://api.spotify.com/v1/me/player/volume?volume_percent=${volume}`;
-
 		await fetch(endpoint, {
 			method: 'PUT',
 			headers: {
@@ -112,24 +107,29 @@
 		});
 	}
 
-	let fadeInterval: NodeJS.Timeout;
-	async function fadeVolume(durationMs: number) {
-		clearInterval(fadeInterval);
+	let volumeFadeInterval: NodeJS.Timeout;
+	async function fadeVolume(durationMs: number, direction: 'in' | 'out') {
+		clearInterval(volumeFadeInterval);
 
 		const startVolume = volume;
-		if (startVolume === 0) return;
+		const endVolume = direction === 'in' ? 100 : 0;
+		if (startVolume === endVolume) return;
 
 		const steps = durationMs / 50;
-		const decrement = startVolume / steps;
+		const changePerStep = (endVolume - startVolume) / steps;
 		let currentFadeVolume = startVolume;
 
-		fadeInterval = setInterval(() => {
-			currentFadeVolume -= decrement;
-			volume = Math.max(0, Math.round(currentFadeVolume));
+		volumeFadeInterval = setInterval(() => {
+			currentFadeVolume += changePerStep;
+			if (direction === 'in') {
+				volume = Math.min(100, Math.round(currentFadeVolume));
+			} else {
+				volume = Math.max(0, Math.round(currentFadeVolume));
+			}
 			setVolume();
 
-			if (volume <= 0) {
-				clearInterval(fadeInterval);
+			if ((direction === 'in' && volume >= 100) || (direction === 'out' && volume <= 0)) {
+				clearInterval(volumeFadeInterval);
 			}
 		}, 50);
 	}
@@ -165,7 +165,6 @@
 								{currentlyPlaying.item.artists.map((a: any) => a.name).join(', ')}
 							</p>
 						</div>
-
 						{#if showAlbumArt}
 							<img
 								src={currentlyPlaying.item.album.images[0].url}
@@ -241,20 +240,11 @@
 								>
 							</button>
 							<div class="panel-content">
-								<button class="action-btn" on:click={setVolumeToMin} aria-label="Set volume to 0">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="24"
-										height="24"
-										viewBox="0 0 512 512"
-										><path
-											d="M256,32C132.3,32,32,132.3,32,256S132.3,480,256,480,480,379.7,480,256,379.7,32,256,32Zm0,400V384c-70.7,0-128-57.3-128-128s57.3-128,128-128v48c-44.2,0-80,35.8-80,80s35.8,80,80,80,80-35.8,80-80-35.8-80-80-80V80c70.7,0,128,57.3,128,128s-57.3,128-128,128Z"
-										/></svg
-									>
-								</button>
-								<button class="action-btn" on:click={() => fadeVolume(500)}>Short Fade</button>
-								<button class="action-btn" on:click={() => fadeVolume(2500)}>Long Fade</button>
-								<button class="action-btn" on:click={setVolumeToMax}>100</button>
+								<button class="action-btn" on:click={() => setVolumeTo(0)} aria-label="Mute">0%</button>
+								<button class="action-btn" on:click={() => setVolumeTo(50)}>50%</button>
+								<button class="action-btn" on:click={() => setVolumeTo(100)}>100%</button>
+								<button class="action-btn" on:click={() => fadeVolume(2500, 'in')}>Fade In</button>
+								<button class="action-btn" on:click={() => fadeVolume(2500, 'out')}>Fade Out</button>
 							</div>
 						</div>
 

@@ -1,5 +1,24 @@
 /* src/routes/styles.css */
 
+html,
+body {
+	margin: 0;
+	padding: 0;
+	background-color: #121212; /* Default to a dark theme background to prevent white flashes */
+	font-family:
+		system-ui,
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		Roboto,
+		Oxygen,
+		Ubuntu,
+		Cantarell,
+		'Open Sans',
+		'Helvetica Neue',
+		sans-serif;
+}
+
 :root {
 	--spotify-green: #1db954;
 }
@@ -92,7 +111,6 @@ main {
 	gap: 10px;
 	width: 100%;
 	max-width: 350px;
-	margin-top: 1rem;
 }
 
 .song-details.placeholder .song-title {
@@ -242,11 +260,11 @@ input[type='range']:disabled,
 	display: flex;
 	justify-content: space-around;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
 }
 .collapsible-panel.expanded .panel-content {
 	max-height: 100px;
-	padding: 0 15px 15px;
+	padding: 5px 15px 15px;
 }
 .icon-btn {
 	background: none;
@@ -264,8 +282,8 @@ input[type='range']:disabled,
 	color: var(--text-primary);
 }
 .action-btn {
-	font-size: 0.9rem;
-	padding: 8px 16px;
+	font-size: 0.8rem;
+	padding: 6px 10px;
 	font-weight: bold;
 	cursor: pointer;
 	background-color: var(--surface-bg);
@@ -278,8 +296,9 @@ input[type='range']:disabled,
 	justify-content: center;
 	gap: 6px;
 	flex-grow: 1;
+	white-space: nowrap;
 }
-.action-btn:hover {
+.action-btn:not(:disabled):hover {
 	color: var(--text-primary);
 	border-color: var(--text-primary);
 	transform: translateY(-2px);
