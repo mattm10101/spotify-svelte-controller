@@ -13,7 +13,8 @@
 	let showAlbumArt = false;
 	let isUserInfoExpanded = false;
 	let isUiControlsExpanded = false;
-	let volume = 100; // State for volume
+	let isVolumeControlsExpanded = false;
+	let volume = 100;
 
 	function toggleTheme() {
 		theme = theme === 'dark' ? 'light' : 'dark';
@@ -26,6 +27,18 @@
 	}
 	function toggleUiControls() {
 		isUiControlsExpanded = !isUiControlsExpanded;
+	}
+	function toggleVolumeControls() {
+		isVolumeControlsExpanded = !isVolumeControlsExpanded;
+	}
+
+	function setVolumeToMin() {
+		volume = 0;
+		setVolume();
+	}
+	function setVolumeToMax() {
+		volume = 100;
+		setVolume();
 	}
 
 	// --- Auth & API Functions ---
@@ -46,12 +59,12 @@
 		if (!isRefresh) isLoading = true;
 		const endpoint = 'https://api.spotify.com/v1/me/player/currently-playing';
 		const response = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
-		if (response.status === 204) {
-			currentlyPlaying = null;
+		if (response.status === 204 || (response.status === 200 && !(await response.clone().json()).item)) {
+			currentlyPlaying = null; // Handles API returning 200 with no item
 		} else if (response.ok) {
 			const data = await response.json();
 			currentlyPlaying = data;
-			if (data.device) {
+			if (data && data.device) {
 				volume = data.device.volume_percent;
 			}
 		}
@@ -88,7 +101,6 @@
 
 	async function setVolume() {
 		if (!$userSession?.provider_token) return;
-		// Corrected endpoint with query parameter
 		const endpoint = `https://api.spotify.com/v1/me/player/volume?volume_percent=${volume}`;
 
 		await fetch(endpoint, {
@@ -98,6 +110,28 @@
 				Authorization: `Bearer ${$userSession.provider_token}`
 			}
 		});
+	}
+
+	let fadeInterval: NodeJS.Timeout;
+	async function fadeVolume(durationMs: number) {
+		clearInterval(fadeInterval);
+
+		const startVolume = volume;
+		if (startVolume === 0) return;
+
+		const steps = durationMs / 50;
+		const decrement = startVolume / steps;
+		let currentFadeVolume = startVolume;
+
+		fadeInterval = setInterval(() => {
+			currentFadeVolume -= decrement;
+			volume = Math.max(0, Math.round(currentFadeVolume));
+			setVolume();
+
+			if (volume <= 0) {
+				clearInterval(fadeInterval);
+			}
+		}, 50);
 	}
 
 	function play() {
@@ -123,33 +157,42 @@
 			<div class="player" class:refreshing={isRefreshing}>
 				{#if isLoading}
 					<p>Loading...</p>
-				{:else if currentlyPlaying}
-					<div class="song-details">
-						<p class="song-title">{currentlyPlaying.item.name}</p>
-						<p class="artist-name">{currentlyPlaying.item.artists.map((a: any) => a.name).join(', ')}</p>
-					</div>
+				{:else}
+					{#if currentlyPlaying && currentlyPlaying.item}
+						<div class="song-details">
+							<p class="song-title">{currentlyPlaying.item.name}</p>
+							<p class="artist-name">
+								{currentlyPlaying.item.artists.map((a: any) => a.name).join(', ')}
+							</p>
+						</div>
 
-					{#if showAlbumArt}
-						<img
-							src={currentlyPlaying.item.album.images[0].url}
-							alt="Album art for {currentlyPlaying.item.album.name}"
-							class="album-art"
-						/>
+						{#if showAlbumArt}
+							<img
+								src={currentlyPlaying.item.album.images[0].url}
+								alt="Album art for {currentlyPlaying.item.album.name}"
+								class="album-art"
+							/>
+						{/if}
+					{:else}
+						<div class="song-details placeholder">
+							<p class="song-title">Nothing Playing</p>
+							<p class="artist-name">Use any Spotify app to start a song</p>
+						</div>
 					{/if}
 
 					<div class="controls">
-						<button on:click={prevTrack} aria-label="Previous Track">
+						<button on:click={prevTrack} disabled={!currentlyPlaying} aria-label="Previous Track">
 							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
 								><path d="M6 6h2v12H6zm3.5 6L18 6v12l-8.5-6z" /></svg
 							>
 						</button>
 						<button
 							class="play-pause-btn"
-							class:playing={currentlyPlaying.is_playing}
-							on:click={currentlyPlaying.is_playing ? pause : play}
-							aria-label={currentlyPlaying.is_playing ? 'Pause' : 'Play'}
+							class:playing={currentlyPlaying?.is_playing}
+							on:click={currentlyPlaying?.is_playing ? pause : play}
+							aria-label={currentlyPlaying?.is_playing ? 'Pause' : 'Play'}
 						>
-							{#if currentlyPlaying.is_playing}
+							{#if currentlyPlaying?.is_playing}
 								<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24"
 									><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg
 								>
@@ -159,7 +202,7 @@
 								>
 							{/if}
 						</button>
-						<button on:click={nextTrack} aria-label="Next Track">
+						<button on:click={nextTrack} disabled={!currentlyPlaying} aria-label="Next Track">
 							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
 								><path d="M6 18v-12l8.5 6L6 18zM16 6h2v12h-2z" /></svg
 							>
@@ -167,11 +210,6 @@
 					</div>
 
 					<div class="volume-container">
-						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-							><path
-								d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
-							/></svg
-						>
 						<input
 							type="range"
 							min="0"
@@ -179,11 +217,47 @@
 							bind:value={volume}
 							on:change={setVolume}
 							style="--value: {volume}"
+							disabled={!currentlyPlaying}
 							aria-label="Volume"
 						/>
 					</div>
 
 					<div class="collapsible-section">
+						<div class="collapsible-panel" class:expanded={isVolumeControlsExpanded}>
+							<button
+								type="button"
+								class="panel-header"
+								on:click={toggleVolumeControls}
+								disabled={!currentlyPlaying}
+							>
+								<span>Volume Controls</span>
+								<svg
+									class="chevron"
+									xmlns="http://www.w3.org/2000/svg"
+									width="20"
+									height="20"
+									viewBox="0 0 24 24"
+									><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" /></svg
+								>
+							</button>
+							<div class="panel-content">
+								<button class="action-btn" on:click={setVolumeToMin} aria-label="Set volume to 0">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="24"
+										height="24"
+										viewBox="0 0 512 512"
+										><path
+											d="M256,32C132.3,32,32,132.3,32,256S132.3,480,256,480,480,379.7,480,256,379.7,32,256,32Zm0,400V384c-70.7,0-128-57.3-128-128s57.3-128,128-128v48c-44.2,0-80,35.8-80,80s35.8,80,80,80,80-35.8,80-80-35.8-80-80-80V80c70.7,0,128,57.3,128,128s-57.3,128-128,128Z"
+										/></svg
+									>
+								</button>
+								<button class="action-btn" on:click={() => fadeVolume(500)}>Short Fade</button>
+								<button class="action-btn" on:click={() => fadeVolume(2500)}>Long Fade</button>
+								<button class="action-btn" on:click={setVolumeToMax}>100</button>
+							</div>
+						</div>
+
 						<div class="collapsible-panel" class:expanded={isUiControlsExpanded}>
 							<button type="button" class="panel-header" on:click={toggleUiControls}>
 								<span>UI Controls</span>
@@ -259,13 +333,10 @@
 								>
 							</button>
 							<div class="panel-content">
-								<button class="logout-btn" on:click={logout}>Logout</button>
+								<button class="action-btn" on:click={logout}>Logout</button>
 							</div>
 						</div>
 					</div>
-				{:else}
-					<p>No song is currently playing on Spotify.</p>
-					<p><small>(Start playing a song on another device.)</small></p>
 				{/if}
 			</div>
 		{:else}
@@ -276,3 +347,4 @@
 		{/if}
 	</div>
 </main>
+
